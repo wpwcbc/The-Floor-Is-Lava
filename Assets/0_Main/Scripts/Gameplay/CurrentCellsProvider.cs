@@ -26,7 +26,6 @@ public class CurrentCellsProvider : MonoBehaviour
 
     public void RegisterCell(ITouchCell cell)
     {
-        Debug.Log("[RegisterCell] " + cell.Position);
         if (cell == null) return;
         if (_currentCells.Contains(cell)) return; // avoid duplicates
 

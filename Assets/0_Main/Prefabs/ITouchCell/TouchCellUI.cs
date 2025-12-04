@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,12 +28,26 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         {
             position = value;
             ApplyGridPositionToUI();
+
+            // If you move cells at runtime and want animation center to follow,
+            // uncomment this:
+            // CacheBaseTransformState();
         }
     }
 
     public bool IsTouched { get; private set; }
-    public bool IsSensitive { get; set; } = true;
-    public bool IsForbidden { get; set; } = true;
+    public CellRole role { get; private set; } = CellRole.None;
+    public void SetRole(CellRole role)
+    {
+        this.role = role;
+    }
+
+    public CellColor color { get; private set; }
+    public void SetColor(CellColor color)
+    {
+        this.color = color;
+        transform.GetComponent<Image>().sprite = CellColorSprites.GetSprite(color);
+    }
 
     /// <summary>
     /// Helper: bottom-left of this cell in screen pixels.
@@ -76,13 +91,24 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
             ApplyGridPositionToUI();
         }
 
-        Debug.Log($"GridPos: {position}");
-        Debug.Log($"UiPos: {UiPos}");
+        // Cache transform state AFTER grid placement so "rest" = correct bottom-left.
+        CacheBaseTransformState();
 
         CurrentCellsProvider.Instance.RegisterCell(this);
+    }
 
-        // Optional debug:
-        // Debug.Log($"{name} grid index = {Position}");
+    private void CacheBaseTransformState()
+    {
+        if (rect == null) return;
+
+        baseScale = rect.localScale;
+        baseAnchoredPos = rect.anchoredPosition;
+
+        // rect.rect is already in local coordinates of this RectTransform
+        Rect r = rect.rect;
+        pivotToCenter = new Vector2(r.width * 0.5f, r.height * 0.5f);
+
+        baseTransformCached = true;
     }
 
     private Vector2Int ComputeGridPositionFromUI()
@@ -126,7 +152,7 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
                 cam,
                 out Vector2 localPoint))
         {
-            // ASSUMPTION: rect.pivot = (0,0) so anchoredPosition == bottom-left
+            // ASSUMPTION: rect.pivot = (0,0) and anchors at bottom-left.
             rect.anchoredPosition = localPoint;
         }
     }
@@ -156,7 +182,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
 
         IsTouched = isTouched;
 
-        // React to state change (visuals, events, etc.)
         if (isTouched)
         {
             TouchedLogic();
@@ -167,20 +192,151 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         }
     }
 
+    #region Touch Logic
+
+    // --- animation state backing fields ---
+    private Coroutine touchAnimCoroutine;
+    private float animDuration = 0.1f; // seconds
+    private float shrinkScale = 0.75f;   // relative scale factor (1 -> normal, 0.9 -> 90%)
+
+    private Vector3 baseScale;
+    private Vector2 baseAnchoredPos;
+    private Vector2 pivotToCenter;   // vector from pivot (bottom-left) to center in local space
+    private bool baseTransformCached = false;
+
     private void TouchedLogic()
     {
-        // TEMP
-        transform.GetComponent<Image>().color = new Color(1f, 0f, 0f);
+        if (!baseTransformCached)
+        {
+            CacheBaseTransformState();
+        }
+
+        if (touchAnimCoroutine != null)
+        {
+            StopCoroutine(touchAnimCoroutine);
+        }
+
+        touchAnimCoroutine = StartCoroutine(ShrinkAnim());
     }
 
     private void UntouchedLogic()
     {
-        // TEMP
-        transform.GetComponent<Image>().color = new Color(0f, 1f, 0f);
+        if (!baseTransformCached)
+        {
+            CacheBaseTransformState();
+        }
+
+        if (touchAnimCoroutine != null)
+        {
+            StopCoroutine(touchAnimCoroutine);
+        }
+
+        touchAnimCoroutine = StartCoroutine(UnshrinkAnim());
     }
+
+    /// <summary>
+    /// Apply a relative scale factor around the cell's visual center,
+    /// keeping the center fixed even though the pivot is bottom-left.
+    /// scaleFactor = 1.0 → rest; shrinkScale → shrunk.
+    /// </summary>
+    private void ApplyScaleAroundCenter(float scaleFactor)
+    {
+        if (!baseTransformCached || rect == null)
+        {
+            return;
+        }
+
+        // Scale relative to baseScale
+        float scaledX = baseScale.x * scaleFactor;
+        float scaledY = baseScale.y * scaleFactor;
+
+        rect.localScale = new Vector3(scaledX, scaledY, baseScale.z);
+
+        // Offset from pivot to center in parent space at base scale
+        Vector2 baseOffset = new Vector2(baseScale.x * pivotToCenter.x, baseScale.y * pivotToCenter.y);
+
+        // Move pivot so that center stays fixed as we change scaleFactor
+        // center = baseAnchoredPos + baseOffset (constant)
+        // anchoredPos = center - scaleFactor * baseOffset
+        rect.anchoredPosition = baseAnchoredPos + (1.0f - scaleFactor) * baseOffset;
+    }
+
+    private IEnumerator ShrinkAnim()
+    {
+        if (!baseTransformCached || rect == null)
+        {
+            yield break;
+        }
+
+        float elapsed = 0.0f;
+
+        // Current relative scale factor (in case we retrigger mid-animation)
+        float currentScaleFactor = 1.0f;
+        if (Mathf.Abs(baseScale.x) > Mathf.Epsilon)
+        {
+            currentScaleFactor = rect.localScale.x / baseScale.x;
+        }
+
+        float startScaleFactor = currentScaleFactor;
+        float targetScaleFactor = shrinkScale;
+
+        while (elapsed < animDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / animDuration);
+            float scaleFactor = Mathf.Lerp(startScaleFactor, targetScaleFactor, t);
+
+            ApplyScaleAroundCenter(scaleFactor);
+            yield return null;
+        }
+
+        ApplyScaleAroundCenter(targetScaleFactor);
+    }
+
+    private IEnumerator UnshrinkAnim()
+    {
+        if (!baseTransformCached || rect == null)
+        {
+            yield break;
+        }
+
+        float elapsed = 0.0f;
+
+        float currentScaleFactor = 1.0f;
+        if (Mathf.Abs(baseScale.x) > Mathf.Epsilon)
+        {
+            currentScaleFactor = rect.localScale.x / baseScale.x;
+        }
+
+        float startScaleFactor = currentScaleFactor;
+        float targetScaleFactor = 1.0f;
+
+        while (elapsed < animDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / animDuration);
+            float scaleFactor = Mathf.Lerp(startScaleFactor, targetScaleFactor, t);
+
+            ApplyScaleAroundCenter(scaleFactor);
+            yield return null;
+        }
+
+        ApplyScaleAroundCenter(targetScaleFactor);
+    }
+
+    #endregion
 
     void OnDisable()
     {
-        CurrentCellsProvider.Instance.UnregisterCell(this);
+        if (touchAnimCoroutine != null)
+        {
+            StopCoroutine(touchAnimCoroutine);
+            touchAnimCoroutine = null;
+        }
+
+        if (CurrentCellsProvider.Instance != null)
+        {
+            CurrentCellsProvider.Instance.UnregisterCell(this);
+        }
     }
 }

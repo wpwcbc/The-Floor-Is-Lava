@@ -10,6 +10,9 @@ public interface ITouchCell
 
     void SetIsTouched(bool isTouched);
 
-    bool IsSensitive { get; set; }
-    bool IsForbidden { get; set; }
+    CellRole role { get; }
+    void SetRole(CellRole role);
+
+    CellColor color { get; }
+    void SetColor(CellColor color);
 }

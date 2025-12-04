@@ -46,9 +46,6 @@ public class OverlapDetector : MonoBehaviour
             if (!cellsProvider.TryGetCell(gridIndex, out ITouchCell cell))
                 continue;
 
-            if (!cell.IsSensitive)
-                continue;
-
             // 1.3 If not already touched, mark as touched
             if (!cell.IsTouched)
             {
@@ -62,9 +59,6 @@ public class OverlapDetector : MonoBehaviour
         // 2. Any cell not hit by any point this frame should be set to not touched
         foreach (ITouchCell cell in remainingCells)
         {
-            if (!cell.IsSensitive)
-                continue;
-
             // Only set when the state has chenged
             if (cell.IsTouched)
             {

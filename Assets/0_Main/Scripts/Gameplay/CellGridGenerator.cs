@@ -88,8 +88,7 @@ public class TouchCellRuntimeGenerator : MonoBehaviour
                 instance.SetGridPosition(gridIndex);
 
                 // Basic flags for now
-                instance.IsSensitive = true;
-                instance.IsForbidden = false;
+                instance.SetRole(CellRole.Safe);
             }
         }
 
