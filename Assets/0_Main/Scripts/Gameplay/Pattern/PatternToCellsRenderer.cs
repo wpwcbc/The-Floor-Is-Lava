@@ -5,6 +5,9 @@ public sealed class PatternToCellsRenderer : MonoBehaviour
 {
     private readonly List<PatternInstance> _patternInstances = new List<PatternInstance>();
 
+    private readonly Dictionary<ITouchCell, PatternInstance> _cellOwners =
+        new Dictionary<ITouchCell, PatternInstance>();
+
     public void RegisterPatternInstance(PatternInstance instance)
     {
         if (instance == null)
@@ -28,6 +31,23 @@ public sealed class PatternToCellsRenderer : MonoBehaviour
         }
 
         _patternInstances.Remove(instance);
+        // _cellOwners will be rebuilt next frame, so no need to clean it here.
+    }
+
+    public PatternInstance GetOwnerPatternInstance(ITouchCell cell)
+    {
+        if (cell == null)
+        {
+            return null;
+        }
+
+        PatternInstance owner;
+        if (_cellOwners.TryGetValue(cell, out owner))
+        {
+            return owner;
+        }
+
+        return null;
     }
 
     private void LateUpdate()
@@ -44,22 +64,28 @@ public sealed class PatternToCellsRenderer : MonoBehaviour
         }
 
         IReadOnlyList<ITouchCell> allCells = provider.CurrentCells;
-
-        // 1. Clear roles on all cells (visual background can stay as-is or be handled by the cell itself)
-        for (int i = 0; i < allCells.Count; i++)
+        if (allCells == null)
         {
-            ITouchCell cell = allCells[i];
-            cell.SetRole(CellRole.None);
-            cell.SetColor(CellColor.Black);
+            return;
         }
 
-        // 2. Collect final cell states with layer resolution
+        _cellOwners.Clear();
+
+        // 1. Collect final cell states with layer resolution.
         Dictionary<Vector2Int, WorldPatternCell> resolvedCells =
             new Dictionary<Vector2Int, WorldPatternCell>();
+
+        Dictionary<Vector2Int, PatternInstance> resolvedOwners =
+            new Dictionary<Vector2Int, PatternInstance>();
 
         for (int i = 0; i < _patternInstances.Count; i++)
         {
             PatternInstance pattern = _patternInstances[i];
+            if (!pattern.IsAlive)
+            {
+                continue;
+            }
+
             IEnumerable<WorldPatternCell> occupiedCells = pattern.GetOccupiedCells();
 
             foreach (WorldPatternCell worldCell in occupiedCells)
@@ -69,32 +95,86 @@ public sealed class PatternToCellsRenderer : MonoBehaviour
                 WorldPatternCell existing;
                 if (resolvedCells.TryGetValue(index, out existing))
                 {
-                    // Higher layer wins
                     if (worldCell.Layer >= existing.Layer)
                     {
                         resolvedCells[index] = worldCell;
+                        resolvedOwners[index] = pattern;
                     }
                 }
                 else
                 {
                     resolvedCells.Add(index, worldCell);
+                    resolvedOwners.Add(index, pattern);
                 }
             }
         }
 
-        // 3. Apply resolved states to the actual ITouchCell instances
+        // 2. Build a lookup: grid index -> ITouchCell.
+        Dictionary<Vector2Int, ITouchCell> cellByIndex =
+            new Dictionary<Vector2Int, ITouchCell>();
+
+        for (int i = 0; i < allCells.Count; i++)
+        {
+            ITouchCell cell = allCells[i];
+            Vector2Int index = cell.Position;
+
+            // If there are multiple cells per index, last one wins, but your grid
+            // should normally have exactly one cell per index.
+            cellByIndex[index] = cell;
+        }
+
+        // 3. Apply resolved states and record ownership (only when changed).
         foreach (KeyValuePair<Vector2Int, WorldPatternCell> pair in resolvedCells)
         {
+            Vector2Int index = pair.Key;
+
             ITouchCell cell;
-            if (!provider.TryGetCell(pair.Key, out cell))
+            if (!cellByIndex.TryGetValue(index, out cell))
             {
                 continue;
             }
 
             WorldPatternCell patternCell = pair.Value;
 
-            cell.SetRole(patternCell.Role);
-            cell.SetColor(patternCell.Color);
+            if (cell.role != patternCell.Role)
+            {
+                cell.SetRole(patternCell.Role);
+            }
+
+            if (cell.color != patternCell.Color)
+            {
+                cell.SetColor(patternCell.Color);
+            }
+
+            PatternInstance owner;
+            if (resolvedOwners.TryGetValue(index, out owner))
+            {
+                _cellOwners[cell] = owner;
+            }
+        }
+
+        // 4. Any cell not covered by a pattern this frame should be None/Black.
+        for (int i = 0; i < allCells.Count; i++)
+        {
+            ITouchCell cell = allCells[i];
+            Vector2Int index = cell.Position;
+
+            if (resolvedCells.ContainsKey(index))
+            {
+                continue;
+            }
+
+            if (cell.role != CellRole.None)
+            {
+                cell.SetRole(CellRole.None);
+            }
+
+            if (cell.color != CellColor.Black)
+            {
+                cell.SetColor(CellColor.Black);
+            }
+
+            _cellOwners.Remove(cell);
         }
     }
 }

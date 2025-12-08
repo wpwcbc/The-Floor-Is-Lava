@@ -1,0 +1,12 @@
+# ninja log v5
+186	1049	7868851262429581	FramePacing/CMakeFiles/swappywrapper.dir/UnitySwappyWrapper.cpp.o	9b899d6f762a4863
+1057	1591	7868851267613999	C:/Users/wpwcb/Documents/REAL_DOC/CODE/UNIT1010/BDS/The Floor Is Lava/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/4e2l4v6n/obj/arm64-v8a/libswappywrapper.so	8b01f84e09db334b
+67	3546	7868851287248447	GameActivity/CMakeFiles/game.dir/UGAInputKeyEvent.cpp.o	eb0176f54737e044
+88	3584	7868851287348120	GameActivity/CMakeFiles/game.dir/UGAEntry.cpp.o	22f3bb745c36c9a2
+4	3614	7868851287964776	GameActivity/CMakeFiles/game.dir/UGAConfiguration.cpp.o	85a7b64955ab996e
+162	3656	7868851288392020	GameActivity/CMakeFiles/game.dir/UGAInputMotionEvent.cpp.o	98887f5bec35d1c4
+46	3806	7868851289908269	GameActivity/CMakeFiles/game.dir/UGADebug.cpp.o	5746fdc6c247d17d
+135	4232	7868851294189933	GameActivity/CMakeFiles/game.dir/UGASoftKeyboard.cpp.o	f00e5a3b4b689852
+112	4284	7868851294716367	GameActivity/CMakeFiles/game.dir/UGAInput.cpp.o	6726d520438fd82d
+25	4483	7868851296714626	GameActivity/CMakeFiles/game.dir/UGAApplication.cpp.o	ebfc34f40fd0e47
+4484	4739	7868851299406456	C:/Users/wpwcb/Documents/REAL_DOC/CODE/UNIT1010/BDS/The Floor Is Lava/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/4e2l4v6n/obj/arm64-v8a/libgame.so	d45cc5d6deefc4c

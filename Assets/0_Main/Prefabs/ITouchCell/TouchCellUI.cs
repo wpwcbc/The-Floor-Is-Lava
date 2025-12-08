@@ -14,48 +14,114 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
     [SerializeField, HideInInspector]
     private Vector2Int position;
 
-    // ITouchCell implementation
+    #region Interface Impl
+
     public int Size
     {
-        get => sizeInCells;
-        set => sizeInCells = Mathf.Max(1, value);
+        get { return sizeInCells; }
+        set { sizeInCells = Mathf.Max(1, value); }
     }
 
     public Vector2Int Position
     {
-        get => position;
+        get { return position; }
         set
         {
             position = value;
             ApplyGridPositionToUI();
-
             // If you move cells at runtime and want animation center to follow,
-            // uncomment this:
-            // CacheBaseTransformState();
+            // you can call CacheBaseTransformState() here.
         }
     }
 
     public bool IsTouched { get; private set; }
+
     public CellRole role { get; private set; } = CellRole.None;
-    public void SetRole(CellRole role)
+
+    public event System.Action<ITouchCell, CellRole, CellRole> RoleChanged;
+
+    public void SetRole(CellRole newRole)
     {
-        this.role = role;
+
+        if (role == newRole)
+        {
+            return;
+        }
+
+        if (position == Vector2Int.zero) Debug.Log("CellToouchRuleSystem OnCellRoleChanged " + this.Position + " " + newRole);
+
+        CellRole oldRole = role;
+        role = newRole;
+
+        if (RoleChanged != null)
+        {
+            RoleChanged(this, oldRole, newRole);
+        }
     }
 
     public CellColor color { get; private set; }
+
     public void SetColor(CellColor color)
     {
         this.color = color;
-        transform.GetComponent<Image>().sprite = CellColorSprites.GetSprite(color);
+        baseColor = CellColorSprites.GetColor(color);
+        UpdateVisualColor();
     }
+
+    #endregion
+
+    #region Visual
+
+    [Header("Visual")]
+    [SerializeField] private Image cellImage; // child Image that actually shows the tile color
+
+    // Base logical color (from patterns)
+    private Color baseColor = Color.black;
+
+    // Effect layer
+    private bool hasEffectTint = false;
+    private Color effectTint = Color.white;
+
+    // Visual-only API for effects (do not add to ITouchCell)
+    public void SetEffectTint(Color tint)
+    {
+        hasEffectTint = true;
+        effectTint = tint;
+        UpdateVisualColor();
+    }
+
+    public void ClearEffectTint()
+    {
+        hasEffectTint = false;
+        UpdateVisualColor();
+    }
+
+    private void UpdateVisualColor()
+    {
+        if (cellImage == null)
+        {
+            return;
+        }
+
+        if (hasEffectTint)
+        {
+            cellImage.color = effectTint;
+        }
+        else
+        {
+            cellImage.color = baseColor;
+        }
+    }
+
+    #endregion
 
     /// <summary>
     /// Helper: bottom-left of this cell in screen pixels.
     /// </summary>
     private Vector2Int UiPos
     {
-        get => GridMathUtils.GridToPixelOrigin(position);
-        set => Position = GridMathUtils.PixelToGridIndex(value);
+        get { return GridMathUtils.GridToPixelOrigin(position); }
+        set { Position = GridMathUtils.PixelToGridIndex(value); }
     }
 
     private RectTransform rect;
@@ -64,21 +130,35 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
     private void Awake()
     {
         rect = transform as RectTransform;
-        if (!rect)
+        if (rect == null)
         {
-            Debug.LogError($"TouchCellUI on {name} requires a RectTransform.", this);
+            Debug.LogError("TouchCellUI on " + name + " requires a RectTransform.", this);
         }
 
         canvas = GetComponentInParent<Canvas>();
-        if (!canvas)
+        if (canvas == null)
         {
-            Debug.LogError($"TouchCellUI on {name} must be under a Canvas.", this);
+            Debug.LogError("TouchCellUI on " + name + " must be under a Canvas.", this);
+        }
+
+        if (cellImage == null)
+        {
+            // Parent has no Image; the child does.
+            cellImage = GetComponentInChildren<Image>();
+        }
+
+        if (cellImage == null)
+        {
+            Debug.LogError("TouchCellUI on " + name + " requires a child Image component.", this);
         }
     }
 
     private void Start()
     {
-        if (!rect || !canvas) return;
+        if (rect == null || canvas == null)
+        {
+            return;
+        }
 
         if (isStarting)
         {
@@ -99,12 +179,14 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
 
     private void CacheBaseTransformState()
     {
-        if (rect == null) return;
+        if (rect == null)
+        {
+            return;
+        }
 
         baseScale = rect.localScale;
         baseAnchoredPos = rect.anchoredPosition;
 
-        // rect.rect is already in local coordinates of this RectTransform
         Rect r = rect.rect;
         pivotToCenter = new Vector2(r.width * 0.5f, r.height * 0.5f);
 
@@ -117,40 +199,41 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
             ? null
             : canvas.worldCamera;
 
-        // Get world corners of this RectTransform
-        // 0 = bottom-left, 1 = top-left, 2 = top-right, 3 = bottom-right
         Vector3[] corners = new Vector3[4];
         rect.GetWorldCorners(corners);
 
         Vector3 worldBottomLeft = corners[0];
 
-        // Convert world → screen pixels
         Vector2 screenBottomLeft = RectTransformUtility.WorldToScreenPoint(cam, worldBottomLeft);
 
-        // Finally: screen pixels → grid index
         return GridMathUtils.PixelToGridIndex(screenBottomLeft);
     }
 
     private void ApplyGridPositionToUI()
     {
-        if (!rect || !canvas) return;
+        if (rect == null || canvas == null)
+        {
+            return;
+        }
 
         Camera cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay
             ? null
             : canvas.worldCamera;
 
         RectTransform canvasRect = canvas.transform as RectTransform;
-        if (!canvasRect) return;
+        if (canvasRect == null)
+        {
+            return;
+        }
 
-        // Target bottom-left in screen pixels
         Vector2 screenBottomLeft = GridMathUtils.GridToPixelOrigin(position);
 
-        // Convert to canvas local space
+        Vector2 localPoint;
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                canvasRect,
-                screenBottomLeft,
-                cam,
-                out Vector2 localPoint))
+            canvasRect,
+            screenBottomLeft,
+            cam,
+            out localPoint))
         {
             // ASSUMPTION: rect.pivot = (0,0) and anchors at bottom-left.
             rect.anchoredPosition = localPoint;
@@ -159,26 +242,27 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
 
     // Public helpers for future spawning logic:
 
-    /// <summary>
-    /// Set this cell's grid index and move its UI rect accordingly.
-    /// </summary>
     public void SetGridPosition(Vector2Int gridIndex)
     {
         Position = gridIndex;
     }
 
-    /// <summary>
-    /// Set this cell based on a bottom-left screen pixel position.
-    /// </summary>
     public void SetUiBottomLeft(Vector2 screenPos)
     {
         UiPos = Vector2Int.RoundToInt(screenPos);
     }
 
+    #region Touch Logic
+
+    public event System.Action<ITouchCell> Touched;
+    public event System.Action<ITouchCell> Untouched;
+
     public void SetIsTouched(bool isTouched)
     {
         if (IsTouched == isTouched)
+        {
             return;
+        }
 
         IsTouched = isTouched;
 
@@ -190,9 +274,22 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         {
             UntouchedLogic();
         }
-    }
 
-    #region Touch Logic
+        if (isTouched)
+        {
+            if (Touched != null)
+            {
+                Touched(this);
+            }
+        }
+        else
+        {
+            if (Untouched != null)
+            {
+                Untouched(this);
+            }
+        }
+    }
 
     // --- animation state backing fields ---
     private Coroutine touchAnimCoroutine;
@@ -234,11 +331,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         touchAnimCoroutine = StartCoroutine(UnshrinkAnim());
     }
 
-    /// <summary>
-    /// Apply a relative scale factor around the cell's visual center,
-    /// keeping the center fixed even though the pivot is bottom-left.
-    /// scaleFactor = 1.0 → rest; shrinkScale → shrunk.
-    /// </summary>
     private void ApplyScaleAroundCenter(float scaleFactor)
     {
         if (!baseTransformCached || rect == null)
@@ -246,18 +338,13 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
             return;
         }
 
-        // Scale relative to baseScale
         float scaledX = baseScale.x * scaleFactor;
         float scaledY = baseScale.y * scaleFactor;
 
         rect.localScale = new Vector3(scaledX, scaledY, baseScale.z);
 
-        // Offset from pivot to center in parent space at base scale
         Vector2 baseOffset = new Vector2(baseScale.x * pivotToCenter.x, baseScale.y * pivotToCenter.y);
 
-        // Move pivot so that center stays fixed as we change scaleFactor
-        // center = baseAnchoredPos + baseOffset (constant)
-        // anchoredPos = center - scaleFactor * baseOffset
         rect.anchoredPosition = baseAnchoredPos + (1.0f - scaleFactor) * baseOffset;
     }
 
@@ -270,7 +357,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
 
         float elapsed = 0.0f;
 
-        // Current relative scale factor (in case we retrigger mid-animation)
         float currentScaleFactor = 1.0f;
         if (Mathf.Abs(baseScale.x) > Mathf.Epsilon)
         {
@@ -326,7 +412,7 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
 
     #endregion
 
-    void OnDisable()
+    private void OnDisable()
     {
         if (touchAnimCoroutine != null)
         {

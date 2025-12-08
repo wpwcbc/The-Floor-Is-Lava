@@ -14,6 +14,12 @@ public sealed class PatternLevel_SafeRingWithLavaBar : PatternLevelSetupBase
     [SerializeField]
     private float barStepCooldown = 0.25f;
 
+    // Layering:
+    // - Ring and weakness points share the same base layer.
+    // - Lava bar sits on a much higher layer so it always overrides them.
+    private const int BaseLayer = 0;
+    private const int BarLayerOffset = 100;
+
     protected override void BuildLevelPatterns(List<PatternInstance> buffer)
     {
         if (buffer == null)
@@ -32,17 +38,45 @@ public sealed class PatternLevel_SafeRingWithLavaBar : PatternLevelSetupBase
             gridHeight,
             ringWidth);
 
-        // Origin at (0,0) so the ring covers the full grid extents
+        // Origin at (0,0) so the ring covers the full grid extents.
         PatternInstance ringInstance = new PatternInstance(
             ringDefinition,
             new GridIndex(0, 0),
-            0,          // base layer
-            null);      // no movement / no animation
+            BaseLayer,
+            null); // no movement / no animation
 
         buffer.Add(ringInstance);
 
         // ------------------------------------------------------------
-        // 2. Vertical red forbidden bar, moving left-right and cycling
+        // 2. Fill the interior of the ring with Weakness "Point" cells
+        // ------------------------------------------------------------
+
+        PatternDefinition pointDefinition = PatternPool.CreateWeaknessPointPattern();
+
+        int minX = ringWidth;
+        int maxX = gridWidth - ringWidth - 1;
+        int minY = ringWidth;
+        int maxY = gridHeight - ringWidth - 1;
+
+        if (minX <= maxX && minY <= maxY)
+        {
+            for (int x = minX; x <= maxX; x++)
+            {
+                for (int y = minY; y <= maxY; y++)
+                {
+                    PatternInstance pointInstance = new PatternInstance(
+                        pointDefinition,
+                        new GridIndex(x, y),
+                        BaseLayer,   // same layer as ring
+                        null);       // no movement / no animation
+
+                    buffer.Add(pointInstance);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------
+        // 3. Vertical red forbidden bar, moving left-right and cycling
         // ------------------------------------------------------------
 
         PatternDefinition barDefinition = PatternPool.CreateVerticalLavaBarPattern(gridHeight);
@@ -56,7 +90,7 @@ public sealed class PatternLevel_SafeRingWithLavaBar : PatternLevelSetupBase
             maxOriginX = minOriginX;
         }
 
-        // Start in the middle of the allowed range
+        // Start in the middle of the allowed range.
         int startOriginX = (minOriginX + maxOriginX) / 2;
 
         IPatternUpdateLogic barLogic = new HorizontalBounceLogic(
@@ -64,11 +98,11 @@ public sealed class PatternLevel_SafeRingWithLavaBar : PatternLevelSetupBase
             maxOriginX,
             barStepCooldown);
 
-        // Origin Y = 0 so bar spans from bottom to top (height = gridHeight)
+        // Origin Y = 0 so bar spans from bottom to top (height = gridHeight).
         PatternInstance barInstance = new PatternInstance(
             barDefinition,
             new GridIndex(startOriginX, 0),
-            1,              // above the safe ring layer
+            BaseLayer + BarLayerOffset,  // always above ring + points
             barLogic);
 
         buffer.Add(barInstance);

@@ -24,6 +24,9 @@ public class CurrentCellsProvider : MonoBehaviour
     private List<ITouchCell> _currentCells = new();
     public IReadOnlyList<ITouchCell> CurrentCells => _currentCells;
 
+    public event System.Action<ITouchCell> CellRegisteredEvents;
+    public event System.Action<ITouchCell> CellUnregisteredEvents;
+
     public void RegisterCell(ITouchCell cell)
     {
         if (cell == null) return;
@@ -32,6 +35,8 @@ public class CurrentCellsProvider : MonoBehaviour
         _currentCells.Add(cell);
 
         _cellsByIndex[cell.Position] = cell;
+
+        CellRegisteredEvents(cell);
     }
 
     public void UnregisterCell(ITouchCell cell)
@@ -44,6 +49,8 @@ public class CurrentCellsProvider : MonoBehaviour
         {
             _cellsByIndex.Remove(cell.Position);
         }
+
+        CellUnregisteredEvents(cell);
     }
 
     public bool TryGetCell(Vector2Int index, out ITouchCell cell)

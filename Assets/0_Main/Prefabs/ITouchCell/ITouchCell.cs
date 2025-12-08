@@ -2,12 +2,9 @@ using UnityEngine;
 
 public interface ITouchCell
 {
-    int Size { get; set; } // In number of cells. E.g. Size 2 = 2x2.
-
-    Vector2Int Position { get; } // In grid index
-
+    int Size { get; set; }
+    Vector2Int Position { get; }
     bool IsTouched { get; }
-
     void SetIsTouched(bool isTouched);
 
     CellRole role { get; }
@@ -15,4 +12,11 @@ public interface ITouchCell
 
     CellColor color { get; }
     void SetColor(CellColor color);
+
+    event System.Action<ITouchCell> Touched;
+    event System.Action<ITouchCell> Untouched;
+
+    // oldRole, newRole
+    event System.Action<ITouchCell, CellRole, CellRole> RoleChanged;
 }
+

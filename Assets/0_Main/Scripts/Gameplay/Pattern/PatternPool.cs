@@ -114,4 +114,24 @@ public static class PatternPool
 
         return definition;
     }
+
+    public static PatternDefinition CreateWeaknessPointPattern()
+    {
+        List<LocalPatternCell> cells = new List<LocalPatternCell>
+        {
+            new LocalPatternCell(
+                new CellOffset(0, 0),
+                CellRole.Weakness,
+                CellColor.Blue)
+        };
+
+        PatternFrame frame = new PatternFrame(cells);
+
+        PatternDefinition definition =
+            PatternFactory.CreateSingleFramePattern(
+                "Point",
+                frame);
+
+        return definition;
+    }
 }

@@ -6,49 +6,39 @@ public enum CellColor
     Black = 0,
     Green = 1,
     Red = 2,
+    Blue = 3,
     // Add more colors as needed
 }
 
 public static class CellColorSprites
 {
-    private static readonly Dictionary<CellColor, Sprite> _sprites;
+    private static readonly Dictionary<CellColor, Color> _colors;
 
-    public static IReadOnlyDictionary<CellColor, Sprite> Sprites => _sprites;
+    public static IReadOnlyDictionary<CellColor, Color> Colors
+    {
+        get { return _colors; }
+    }
 
     static CellColorSprites()
     {
-        _sprites = new Dictionary<CellColor, Sprite>();
+        _colors = new Dictionary<CellColor, Color>();
 
-        AddSprite(CellColor.Black, "Sprites/CellColor/cell-black");
-        AddSprite(CellColor.Green, "Sprites/CellColor/cell-green");
-        AddSprite(CellColor.Red, "Sprites/CellColor/cell-red");
-        // Add more mappings here as you add colors
+        // You can tweak these values later (e.g. use ColorUtility.FromHtmlString for custom shades).
+        _colors[CellColor.Black] = Color.black;
+        _colors[CellColor.Green] = Color.green;
+        _colors[CellColor.Red] = Color.red;
+        _colors[CellColor.Blue] = Color.blue;
     }
 
-    private static void AddSprite(CellColor color, string resourcesPath)
+    public static Color GetColor(CellColor color)
     {
-        Sprite sprite = Resources.Load<Sprite>(resourcesPath);
-        if (sprite == null)
+        Color result;
+        if (!_colors.TryGetValue(color, out result))
         {
-            Debug.LogError(
-                "[CellColorSprites] Failed to load sprite at path: " + resourcesPath +
-                " for color: " + color
-            );
-            return;
+            Debug.LogError("[CellColorSprites] No Color registered for CellColor: " + color);
+            return Color.magenta; // obvious debugging color
         }
 
-        _sprites[color] = sprite;
-    }
-
-    public static Sprite GetSprite(CellColor color)
-    {
-        Sprite sprite;
-        if (!_sprites.TryGetValue(color, out sprite))
-        {
-            Debug.LogError("[CellColorSprites] No sprite registered for color: " + color);
-            return null;
-        }
-
-        return sprite;
+        return result;
     }
 }

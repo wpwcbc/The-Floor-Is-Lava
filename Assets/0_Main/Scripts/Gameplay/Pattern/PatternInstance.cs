@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 public sealed class PatternInstance
@@ -13,6 +14,10 @@ public sealed class PatternInstance
     {
         get { return _updateLogic; }
     }
+
+    public bool IsAlive { get; private set; } = true;
+
+    public event Action<PatternInstance> Killed;
 
     public PatternInstance(
         PatternDefinition definition,
@@ -57,7 +62,7 @@ public sealed class PatternInstance
     {
         if (frameIndex < 0 || frameIndex >= Definition.Frames.Count)
         {
-            throw new System.ArgumentOutOfRangeException(nameof(frameIndex));
+            throw new ArgumentOutOfRangeException(nameof(frameIndex));
         }
 
         CurrentFrameIndex = frameIndex;
@@ -77,11 +82,32 @@ public sealed class PatternInstance
 
     public void Tick(float deltaTime)
     {
+        if (!IsAlive)
+        {
+            return;
+        }
+
         if (_updateLogic == null)
         {
             return;
         }
 
         _updateLogic.Tick(this, deltaTime);
+    }
+
+    internal void Kill()
+    {
+        if (!IsAlive)
+        {
+            return;
+        }
+
+        IsAlive = false;
+
+        Action<PatternInstance> handler = Killed;
+        if (handler != null)
+        {
+            handler(this);
+        }
     }
 }
