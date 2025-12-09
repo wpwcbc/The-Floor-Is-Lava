@@ -48,8 +48,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
             return;
         }
 
-        if (position == Vector2Int.zero) Debug.Log("CellToouchRuleSystem OnCellRoleChanged " + this.Position + " " + newRole);
-
         CellRole oldRole = role;
         role = newRole;
 
@@ -116,12 +114,29 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
     #endregion
 
     /// <summary>
-    /// Helper: bottom-left of this cell in screen pixels.
+    /// Bottom-left of this cell in canvas-local pixels (same space as GridMathUtils).
     /// </summary>
     private Vector2Int UiPos
     {
-        get { return GridMathUtils.GridToPixelOrigin(position); }
-        set { Position = GridMathUtils.PixelToGridIndex(value); }
+        get
+        {
+            if (rect == null)
+            {
+                return Vector2Int.zero;
+            }
+
+            return Vector2Int.RoundToInt(rect.anchoredPosition);
+        }
+        set
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchoredPosition = value;
+            position = GridMathUtils.PixelToGridIndex(value);
+        }
     }
 
     private RectTransform rect;
@@ -155,25 +170,22 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
 
     private void Start()
     {
-        if (rect == null || canvas == null)
+        if (rect == null)
         {
             return;
         }
 
         if (isStarting)
         {
-            // Manually placed in scene: read UI and compute grid index
             position = ComputeGridPositionFromUI();
+            Debug.Log(position);
         }
         else
         {
-            // Spawned/moved from code: ensure UI matches current grid position
             ApplyGridPositionToUI();
         }
 
-        // Cache transform state AFTER grid placement so "rest" = correct bottom-left.
         CacheBaseTransformState();
-
         CurrentCellsProvider.Instance.RegisterCell(this);
     }
 
@@ -195,50 +207,27 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
 
     private Vector2Int ComputeGridPositionFromUI()
     {
-        Camera cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay
-            ? null
-            : canvas.worldCamera;
+        if (rect == null)
+        {
+            return Vector2Int.zero;
+        }
 
-        Vector3[] corners = new Vector3[4];
-        rect.GetWorldCorners(corners);
-
-        Vector3 worldBottomLeft = corners[0];
-
-        Vector2 screenBottomLeft = RectTransformUtility.WorldToScreenPoint(cam, worldBottomLeft);
-
-        return GridMathUtils.PixelToGridIndex(screenBottomLeft);
+        // anchoredPosition is bottom-left in canvas-local space (after CanvasScaler)
+        Vector2 canvasBottomLeft = rect.anchoredPosition;
+        return GridMathUtils.PixelToGridIndex(canvasBottomLeft);
     }
 
     private void ApplyGridPositionToUI()
     {
-        if (rect == null || canvas == null)
+        if (rect == null)
         {
             return;
         }
 
-        Camera cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay
-            ? null
-            : canvas.worldCamera;
-
-        RectTransform canvasRect = canvas.transform as RectTransform;
-        if (canvasRect == null)
-        {
-            return;
-        }
-
-        Vector2 screenBottomLeft = GridMathUtils.GridToPixelOrigin(position);
-
-        Vector2 localPoint;
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            canvasRect,
-            screenBottomLeft,
-            cam,
-            out localPoint))
-        {
-            // ASSUMPTION: rect.pivot = (0,0) and anchors at bottom-left.
-            rect.anchoredPosition = localPoint;
-        }
+        Vector2Int canvasBottomLeft = GridMathUtils.GridToPixelOrigin(position);
+        rect.anchoredPosition = canvasBottomLeft;
     }
+
 
     // Public helpers for future spawning logic:
 

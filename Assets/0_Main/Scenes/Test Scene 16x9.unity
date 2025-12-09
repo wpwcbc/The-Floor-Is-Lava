@@ -6735,6 +6735,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 52b575a27cdbd464b873114dfdce750a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::OverlapDetector
+  gridCanvas: {fileID: 47484665}
 --- !u!224 &777396609 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 1311144410878545774, guid: 1d8b1915f9bc95e4ba1c015399e3c913, type: 3}
