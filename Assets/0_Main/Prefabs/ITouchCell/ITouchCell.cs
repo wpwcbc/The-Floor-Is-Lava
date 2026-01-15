@@ -13,10 +13,13 @@ public interface ITouchCell
     CellColor color { get; }
     void SetColor(CellColor color);
 
+    void SetUiText(string text);
+
+    // NEW: viewport direction affects visuals (children)
+    void SetVisualDirection(int direction);
+
     event System.Action<ITouchCell> Touched;
     event System.Action<ITouchCell> Untouched;
 
-    // oldRole, newRole
     event System.Action<ITouchCell, CellRole, CellRole> RoleChanged;
 }
-

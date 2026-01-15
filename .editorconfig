@@ -1,0 +1,4 @@
+[*.cs]
+dotnet_diagnostic.IDE0051.severity = warning
+dotnet_diagnostic.CS0169.severity = warning
+dotnet_diagnostic.CS0414.severity = warning

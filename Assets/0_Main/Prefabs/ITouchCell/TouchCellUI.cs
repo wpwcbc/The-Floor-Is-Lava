@@ -5,14 +5,18 @@ using UnityEngine.UI;
 public class TouchCellUI : MonoBehaviour, ITouchCell
 {
     [Header("Layout")]
-    [SerializeField] private int sizeInCells = 1;   // 1 = 1x1, 2 = 2x2, etc.
-
-    [Tooltip("If true, this cell is manually placed in the scene and its grid Position is computed from its UI rect at Start. If false, Position drives the UI rect (for spawned cells).")]
+    [SerializeField] private int sizeInCells = 1;
     [SerializeField] private bool isStarting = true;
 
-    // Backing field for grid position
     [SerializeField, HideInInspector]
     private Vector2Int position;
+
+    [Header("Direction Visuals")]
+    [SerializeField]
+    private Transform visualsRoot; // assign a child container that holds Image/Text/etc.
+
+    private int _visualDirection = 1;
+    private bool _loggedMissingVisualsRootOnce = false;
 
     #region Interface Impl
 
@@ -29,8 +33,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         {
             position = value;
             ApplyGridPositionToUI();
-            // If you move cells at runtime and want animation center to follow,
-            // you can call CacheBaseTransformState() here.
         }
     }
 
@@ -42,7 +44,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
 
     public void SetRole(CellRole newRole)
     {
-
         if (role == newRole)
         {
             return;
@@ -51,9 +52,10 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         CellRole oldRole = role;
         role = newRole;
 
-        if (RoleChanged != null)
+        System.Action<ITouchCell, CellRole, CellRole> handler = RoleChanged;
+        if (handler != null)
         {
-            RoleChanged(this, oldRole, newRole);
+            handler(this, oldRole, newRole);
         }
     }
 
@@ -66,21 +68,54 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         UpdateVisualColor();
     }
 
+    // NEW
+    public void SetUiText(string text)
+    {
+        if (text == null)
+        {
+            text = string.Empty;
+        }
+
+        if (string.Equals(_cachedUiText, text))
+        {
+            return;
+        }
+
+        _cachedUiText = text;
+
+        EnsureLabelRef();
+        if (cellLabel == null)
+        {
+            if (!_loggedMissingLabelOnce)
+            {
+                Debug.LogError("[TouchCellUI] SetUiText called but no Text label is assigned/found.", this);
+                _loggedMissingLabelOnce = true;
+            }
+
+            return;
+        }
+
+        cellLabel.text = _cachedUiText;
+    }
+
     #endregion
 
     #region Visual
 
     [Header("Visual")]
-    [SerializeField] private Image cellImage; // child Image that actually shows the tile color
+    [SerializeField] private Image cellImage;
 
-    // Base logical color (from patterns)
+    // NEW: label
+    [SerializeField] private Text cellLabel;
+
+    private string _cachedUiText = string.Empty;
+    private bool _loggedMissingLabelOnce = false;
+
     private Color baseColor = Color.black;
 
-    // Effect layer
     private bool hasEffectTint = false;
     private Color effectTint = Color.white;
 
-    // Visual-only API for effects (do not add to ITouchCell)
     public void SetEffectTint(Color tint)
     {
         hasEffectTint = true;
@@ -111,11 +146,23 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         }
     }
 
+    private void EnsureLabelRef()
+    {
+        if (cellLabel != null)
+        {
+            return;
+        }
+
+        Text found = GetComponentInChildren<Text>(true);
+        if (found != null)
+        {
+            cellLabel = found;
+            cellLabel.text = _cachedUiText;
+        }
+    }
+
     #endregion
 
-    /// <summary>
-    /// Bottom-left of this cell in canvas-local pixels (same space as GridMathUtils).
-    /// </summary>
     private Vector2Int UiPos
     {
         get
@@ -158,7 +205,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
 
         if (cellImage == null)
         {
-            // Parent has no Image; the child does.
             cellImage = GetComponentInChildren<Image>();
         }
 
@@ -166,6 +212,10 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         {
             Debug.LogError("TouchCellUI on " + name + " requires a child Image component.", this);
         }
+
+        EnsureLabelRef();
+        EnsureVisualsRootRef();
+        ApplyVisualDirection();
     }
 
     private void Start()
@@ -178,7 +228,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         if (isStarting)
         {
             position = ComputeGridPositionFromUI();
-            Debug.Log(position);
         }
         else
         {
@@ -186,7 +235,15 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         }
 
         CacheBaseTransformState();
-        CurrentCellsProvider.Instance.RegisterCell(this);
+
+        CurrentCellsProvider provider = CurrentCellsProvider.Instance;
+        if (provider == null)
+        {
+            Debug.LogError("[TouchCellUI] CurrentCellsProvider.Instance is null. Cannot register cell.", this);
+            return;
+        }
+
+        provider.RegisterCell(this);
     }
 
     private void CacheBaseTransformState()
@@ -212,7 +269,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
             return Vector2Int.zero;
         }
 
-        // anchoredPosition is bottom-left in canvas-local space (after CanvasScaler)
         Vector2 canvasBottomLeft = rect.anchoredPosition;
         return GridMathUtils.PixelToGridIndex(canvasBottomLeft);
     }
@@ -227,9 +283,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         Vector2Int canvasBottomLeft = GridMathUtils.GridToPixelOrigin(position);
         rect.anchoredPosition = canvasBottomLeft;
     }
-
-
-    // Public helpers for future spawning logic:
 
     public void SetGridPosition(Vector2Int gridIndex)
     {
@@ -266,28 +319,29 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
 
         if (isTouched)
         {
-            if (Touched != null)
+            System.Action<ITouchCell> handler = Touched;
+            if (handler != null)
             {
-                Touched(this);
+                handler(this);
             }
         }
         else
         {
-            if (Untouched != null)
+            System.Action<ITouchCell> handler = Untouched;
+            if (handler != null)
             {
-                Untouched(this);
+                handler(this);
             }
         }
     }
 
-    // --- animation state backing fields ---
     private Coroutine touchAnimCoroutine;
-    private float animDuration = 0.1f; // seconds
-    private float shrinkScale = 0.75f;   // relative scale factor (1 -> normal, 0.9 -> 90%)
+    private float animDuration = 0.1f;
+    private float shrinkScale = 0.75f;
 
     private Vector3 baseScale;
     private Vector2 baseAnchoredPos;
-    private Vector2 pivotToCenter;   // vector from pivot (bottom-left) to center in local space
+    private Vector2 pivotToCenter;
     private bool baseTransformCached = false;
 
     private void TouchedLogic()
@@ -333,7 +387,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
         rect.localScale = new Vector3(scaledX, scaledY, baseScale.z);
 
         Vector2 baseOffset = new Vector2(baseScale.x * pivotToCenter.x, baseScale.y * pivotToCenter.y);
-
         rect.anchoredPosition = baseAnchoredPos + (1.0f - scaleFactor) * baseOffset;
     }
 
@@ -409,9 +462,71 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
             touchAnimCoroutine = null;
         }
 
-        if (CurrentCellsProvider.Instance != null)
+        CurrentCellsProvider provider = CurrentCellsProvider.Instance;
+        if (provider != null)
         {
-            CurrentCellsProvider.Instance.UnregisterCell(this);
+            provider.UnregisterCell(this);
         }
+    }
+
+    public void SetVisualDirection(int direction)
+    {
+        if (direction != 1 && direction != 2)
+        {
+            Debug.LogError($"[TouchCellUI] Unsupported direction={direction}. Expected 1 or 2. Defaulting to 1.", this);
+            direction = 1;
+        }
+
+        if (_visualDirection == direction)
+        {
+            return;
+        }
+
+        _visualDirection = direction;
+        ApplyVisualDirection();
+    }
+
+    private void ApplyVisualDirection()
+    {
+        EnsureVisualsRootRef();
+        if (visualsRoot == null)
+        {
+            if (!_loggedMissingVisualsRootOnce)
+            {
+                Debug.LogError("[TouchCellUI] visualsRoot is null. Assign a child container (NOT the cell root) to rotate.", this);
+                _loggedMissingVisualsRootOnce = true;
+            }
+            return;
+        }
+
+        // Z axis 180 (flip in UI plane)
+        if (_visualDirection == 2)
+        {
+            visualsRoot.localRotation = Quaternion.Euler(0.0f, 0.0f, 180.0f);
+        }
+        else
+        {
+            visualsRoot.localRotation = Quaternion.identity;
+        }
+    }
+
+    private void EnsureVisualsRootRef()
+    {
+        if (visualsRoot != null)
+        {
+            return;
+        }
+
+        // Prefer explicit assignment in inspector.
+        // Safe fallback: try to use Image's parent as the visuals container.
+        if (cellImage != null && cellImage.transform != null && cellImage.transform.parent != null)
+        {
+            // This is a child container (good). Do NOT ever set visualsRoot = transform.
+            visualsRoot = cellImage.transform.parent;
+            return;
+        }
+
+        // No fallback to self. Rotating self breaks positioning/animations.
+        visualsRoot = null;
     }
 }
