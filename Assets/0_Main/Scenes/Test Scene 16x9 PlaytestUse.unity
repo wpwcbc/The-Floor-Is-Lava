@@ -6587,8 +6587,8 @@ MonoBehaviour:
   runtimeManager: {fileID: 0}
   safeSideBarWidth: 2
   rotatingBarLengthCells: 15
-  framesPerQuarterTurn: 25
-  rotateFrameCooldownSeconds: 0.01
+  framesPerQuarterTurn: 9
+  rotateFrameCooldownSeconds: 0.05
   fillWeakPoints: 1
   centerEmptySquareSize: 4
 --- !u!1001 &715212928
@@ -8558,7 +8558,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &999475700
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11508,8 +11508,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PatternLevel_CustomFromData
   runtimeManager: {fileID: 0}
-  singleLevelJson: {fileID: 4900000, guid: 3d387033d4735d842b03908a12d58ccf, type: 3}
-  loadJsonOnAwake: 1
+  singleLevelJson: {fileID: 0}
+  loadJsonOnAwake: 0
   overrideForbiddenFrameCooldown: 0
   forbiddenFrameCooldownOverrideSeconds: 0.25
 --- !u!224 &1422806465 stripped
@@ -11737,6 +11737,54 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 1311144410878545774, guid: 1d8b1915f9bc95e4ba1c015399e3c913, type: 3}
   m_PrefabInstance: {fileID: 356110646}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1466355648
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1466355650}
+  - component: {fileID: 1466355649}
+  m_Layer: 0
+  m_Name: CustomLevelPlaytestHarness
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1466355649
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1466355648}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0fe667a0b716b904d89dddf670da61c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CustomLevelPlaytestHarness
+  gameController: {fileID: 2047194999}
+  customLevel: {fileID: 1411156968}
+  linkToViewportInterface: {fileID: 1352298525}
+  viewportDirection: 0
+--- !u!4 &1466355650
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1466355648}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!224 &1468968878 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 1311144410878545774, guid: 1d8b1915f9bc95e4ba1c015399e3c913, type: 3}
@@ -17079,7 +17127,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &2013295223
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17094,7 +17142,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameBootstrapper
   gameController: {fileID: 2047194999}
   levels:
-  - {fileID: 706534485}
+  - {fileID: 1411156968}
   linkToViewportInterface: {fileID: 1352298525}
   uiPanel: {fileID: 1268325935}
   uiText: {fileID: 1388507042}
@@ -18541,6 +18589,7 @@ SceneRoots:
   m_Roots:
   - {fileID: 519420032}
   - {fileID: 2013295224}
+  - {fileID: 1466355650}
   - {fileID: 1712016293}
   - {fileID: 1704129958}
   - {fileID: 2057745094}

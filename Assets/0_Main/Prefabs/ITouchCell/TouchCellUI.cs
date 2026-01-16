@@ -473,7 +473,6 @@ public class TouchCellUI : MonoBehaviour, ITouchCell
     {
         if (direction != 1 && direction != 2)
         {
-            Debug.LogError($"[TouchCellUI] Unsupported direction={direction}. Expected 1 or 2. Defaulting to 1.", this);
             direction = 1;
         }
 

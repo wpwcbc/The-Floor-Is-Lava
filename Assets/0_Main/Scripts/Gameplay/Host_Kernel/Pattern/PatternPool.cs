@@ -351,7 +351,6 @@ public static class PatternPool
                 length,
                 angleDeg,
                 thicknessCells: 2,
-                samplesPerCell: 2,
                 CellRole.Forbidden,
                 CellColor.Red);
 
@@ -403,72 +402,70 @@ public static class PatternPool
     }
 
     private static PatternFrame BuildRotatingBarFrame(
-        int lengthCells,
-        float angleDegrees,
-        int thicknessCells,
-        int samplesPerCell,
-        CellRole role,
-        CellColor color)
+    int lengthCells,
+    float angleDegrees,
+    int thicknessCells,
+    CellRole role,
+    CellColor color)
     {
-        int length = ClampAtLeast(lengthCells, 2);
-
-        // This implementation is intentionally centered at (0.5, 0.5) in "cell-center space".
-        // That makes a 2-cell thickness land exactly on two rows/cols when axis-aligned.
-        Vector2 center = new Vector2(0.5f, 0.5f);
+        int length = Mathf.Max(2, lengthCells);
+        int thickness = Mathf.Max(1, thicknessCells);
 
         float rad = angleDegrees * Mathf.Deg2Rad;
+
         float ux = Mathf.Cos(rad);
         float uy = Mathf.Sin(rad);
 
-        // Perpendicular (normal)
-        float nx = -uy;
-        float ny = ux;
+        // Unit direction and normal
+        Vector2 u = new Vector2(ux, uy);
+        Vector2 n = new Vector2(-uy, ux);
 
-        // Two-cell thickness -> sample two parallel centerlines separated by 1 cell.
-        // Offsets are ±0.5 along the normal.
-        float halfThicknessOffset = 0.5f;
+        // Keep even thickness symmetric across two columns/rows when axis-aligned.
+        // If you only ever use thickness=2, keeping 0.5 is fine.
+        float centerCoord = (thickness % 2 == 0) ? 0.5f : 0.0f;
+        Vector2 center = new Vector2(centerCoord, centerCoord);
 
-        // Keep the "length" stable: we march along the bar in cell units.
+        // Bar extents in "cell-center space" (matches your old length stability)
         float halfLen = 0.5f * (float)(length - 1);
+        float halfThick = 0.5f * (float)(thickness - 1);
 
-        int spc = ClampAtLeast(samplesPerCell, 1);
-        float step = 1.0f / (float)spc;
+        // Inflate by the projection of a cell square (half-size 0.5) onto u/n.
+        // This is what prevents diagonal thinning and holes.
+        float inflateU = 0.5f * (Mathf.Abs(u.x) + Mathf.Abs(u.y));
+        float inflateN = 0.5f * (Mathf.Abs(n.x) + Mathf.Abs(n.y));
 
-        HashSet<Vector2Int> unique = new HashSet<Vector2Int>();
+        float extentU = halfLen + inflateU;
+        float extentN = halfThick + inflateN;
 
-        // March along the centerline segment, oversampling slightly to reduce holes.
-        // NOTE: the +0.0001f is to ensure the last sample is included.
-        for (float t = -halfLen; t <= halfLen + 0.0001f; t += step)
+        // Conservative world-space AABB for iteration
+        float ex = Mathf.Abs(u.x) * extentU + Mathf.Abs(n.x) * extentN;
+        float ey = Mathf.Abs(u.y) * extentU + Mathf.Abs(n.y) * extentN;
+
+        int minX = Mathf.FloorToInt(center.x - ex) - 1;
+        int maxX = Mathf.CeilToInt(center.x + ex) + 1;
+        int minY = Mathf.FloorToInt(center.y - ey) - 1;
+        int maxY = Mathf.CeilToInt(center.y + ey) + 1;
+
+        List<LocalPatternCell> cells = new List<LocalPatternCell>();
+
+        for (int y = minY; y <= maxY; y++)
         {
-            float px = center.x + (t * ux);
-            float py = center.y + (t * uy);
+            for (int x = minX; x <= maxX; x++)
+            {
+                Vector2 p = new Vector2((float)x, (float)y);
+                Vector2 d = p - center;
 
-            // Two parallel lines (thickness = 2 when axis-aligned)
-            float ax = px + (nx * halfThicknessOffset);
-            float ay = py + (ny * halfThicknessOffset);
+                float along = (d.x * u.x) + (d.y * u.y);
+                float across = (d.x * n.x) + (d.y * n.y);
 
-            float bx = px - (nx * halfThicknessOffset);
-            float by = py - (ny * halfThicknessOffset);
-
-            int xA = Mathf.RoundToInt(ax);
-            int yA = Mathf.RoundToInt(ay);
-
-            int xB = Mathf.RoundToInt(bx);
-            int yB = Mathf.RoundToInt(by);
-
-            unique.Add(new Vector2Int(xA, yA));
-            unique.Add(new Vector2Int(xB, yB));
-        }
-
-        // Convert to PatternFrame cells
-        List<LocalPatternCell> cells = new List<LocalPatternCell>(unique.Count);
-
-        foreach (Vector2Int p in unique)
-        {
-            cells.Add(new LocalPatternCell(
-                new CellOffset(p.x, p.y),
-                role,
-                color));
+                if (Mathf.Abs(along) <= extentU && Mathf.Abs(across) <= extentN)
+                {
+                    cells.Add(new LocalPatternCell(
+                        new CellOffset(x, y),
+                        role,
+                        color));
+                }
+            }
         }
 
         return new PatternFrame(cells);

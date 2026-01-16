@@ -164,6 +164,7 @@ public sealed class FullGridGameController : MonoBehaviour, IFullGridGameControl
     {
         if (_levelRunning)
         {
+            Debug.LogError($"[{ScriptName}] StartLevel called but level is already running. Call StopLevel first.", this);
             return;
         }
 
